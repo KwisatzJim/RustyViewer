@@ -8,6 +8,12 @@ it supports the following:
 - keyboard shortcusts that recognize the OS (will show ctrl for linux and command [the symbol] for macOS)
 - batch processing
 
+To build on linux, clone the repository and run:
+```
+cargo build --release
+```
+
+
 Run the following shell script to build a .app on macOS
 ```
 chmod +x macos/build_app.sh   # one-time, if needed
