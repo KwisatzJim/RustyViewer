@@ -22,11 +22,7 @@ pub fn load_last_batch_output_dir() -> Option<PathBuf> {
         return None;
     }
     let path = PathBuf::from(trimmed);
-    if path.is_dir() {
-        Some(path)
-    } else {
-        None
-    }
+    if path.is_dir() { Some(path) } else { None }
 }
 
 /// Persist the given directory as the last-used batch output directory.

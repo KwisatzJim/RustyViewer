@@ -1,0 +1,14 @@
+{
+  "name": "rustyviewer-ui",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Optional development tools; the desktop app needs no Node runtime or frontend build step.",
+  "scripts": {
+    "check": "node --check ui/app.js",
+    "format": "prettier --write ui/*.{html,css,js}",
+    "format:check": "prettier --check ui/*.{html,css,js}"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6"
+  }
+}

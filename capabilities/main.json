@@ -1,0 +1,1 @@
+{"identifier":"main","description":"Local image editor window","windows":["main"],"permissions":["core:default","core:window:allow-close","dialog:allow-open","dialog:allow-save","dialog:allow-confirm"]}

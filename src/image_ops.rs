@@ -1,13 +1,5 @@
 use image::DynamicImage;
 
-/// Convert `image::DynamicImage` to `egui::ColorImage` for texture loading in egui.
-pub fn to_color_image(img: &DynamicImage) -> egui::ColorImage {
-    let size = [img.width() as usize, img.height() as usize];
-    let rgba = img.to_rgba8();
-    let pixels = rgba.as_flat_samples().samples;
-    egui::ColorImage::from_rgba_unmultiplied(size, pixels)
-}
-
 /// Non-destructively adjust the saturation of an image.
 /// `saturation` slider is between -1.0 (grayscale) and 1.0 (double saturation).
 pub fn adjust_saturation(img: &DynamicImage, saturation: f32) -> DynamicImage {
@@ -62,7 +54,12 @@ pub fn adjust_gamma(img: &DynamicImage, gamma: f32) -> DynamicImage {
 
 /// Adjust color tint of an image by adding Red, Green, Blue channel offsets.
 /// `r_offset`, `g_offset`, `b_offset` are sliders from -1.0 to 1.0.
-pub fn adjust_tint(img: &DynamicImage, r_offset: f32, g_offset: f32, b_offset: f32) -> DynamicImage {
+pub fn adjust_tint(
+    img: &DynamicImage,
+    r_offset: f32,
+    g_offset: f32,
+    b_offset: f32,
+) -> DynamicImage {
     if r_offset.abs() < 0.001 && g_offset.abs() < 0.001 && b_offset.abs() < 0.001 {
         return img.clone();
     }
@@ -138,7 +135,7 @@ pub fn auto_adjust(img: &DynamicImage) -> DynamicImage {
             high -= 1;
         }
 
-        if (high as i16) < low as i16 {
+        if high < low as i16 {
             (0, 255) // Degenerate histogram (e.g. near-solid color); leave unchanged
         } else {
             (low as u8, high as u8)
@@ -153,7 +150,8 @@ pub fn auto_adjust(img: &DynamicImage) -> DynamicImage {
         if max <= min {
             val
         } else {
-            (((val as f32 - min as f32) / (max as f32 - min as f32)) * 255.0).clamp(0.0, 255.0) as u8
+            (((val as f32 - min as f32) / (max as f32 - min as f32)) * 255.0).clamp(0.0, 255.0)
+                as u8
         }
     };
 
@@ -168,6 +166,9 @@ pub fn auto_adjust(img: &DynamicImage) -> DynamicImage {
 
 /// Crop an image to a rectangular area (in image pixel space).
 pub fn crop_image(img: &DynamicImage, x: u32, y: u32, width: u32, height: u32) -> DynamicImage {
+    if x >= img.width() || y >= img.height() {
+        return img.clone();
+    }
     let w = width.min(img.width() - x);
     let h = height.min(img.height() - y);
     if w == 0 || h == 0 {
@@ -191,10 +192,9 @@ pub fn apply_adjustments(
     contrast: f32,
     saturation: f32,
     gamma: f32,
-    r_tint: f32,
-    g_tint: f32,
-    b_tint: f32,
+    tint: [f32; 3],
 ) -> DynamicImage {
+    let [r_tint, g_tint, b_tint] = tint;
     let mut adjusted = img.clone();
 
     // 1. Brightness: slider -1.0 to 1.0 -> maps to -255 to 255
@@ -233,18 +233,6 @@ mod tests {
     use image::{ImageBuffer, Rgba};
 
     #[test]
-    fn test_to_color_image() {
-        let buffer = ImageBuffer::from_fn(2, 2, |x, y| {
-            Rgba([x as u8 * 100, y as u8 * 100, 128, 255])
-        });
-        let img = DynamicImage::ImageRgba8(buffer);
-        let color_img = to_color_image(&img);
-
-        assert_eq!(color_img.size, [2, 2]);
-        assert_eq!(color_img.pixels.len(), 4);
-    }
-
-    #[test]
     fn test_gamma_correction() {
         let buffer = ImageBuffer::from_fn(1, 1, |_, _| Rgba([128, 128, 128, 255]));
         let img = DynamicImage::ImageRgba8(buffer);
@@ -258,14 +246,12 @@ mod tests {
 
     #[test]
     fn test_crop_image() {
-        let buffer = ImageBuffer::from_fn(4, 4, |x, y| {
-            Rgba([x as u8, y as u8, 0, 255])
-        });
+        let buffer = ImageBuffer::from_fn(4, 4, |x, y| Rgba([x as u8, y as u8, 0, 255]));
         let img = DynamicImage::ImageRgba8(buffer);
         let cropped = crop_image(&img, 1, 1, 2, 2);
         assert_eq!(cropped.width(), 2);
         assert_eq!(cropped.height(), 2);
-        
+
         let p = cropped.to_rgba8().get_pixel(0, 0).0;
         assert_eq!(p[0], 1);
         assert_eq!(p[1], 1);

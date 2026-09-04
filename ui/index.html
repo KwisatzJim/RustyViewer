@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RustyViewer</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-icon">R<span>v</span></span>
+        <div>RustyViewer<small>IMAGE WORKSPACE</small></div>
+      </div>
+      <div class="document">
+        <span class="status-dot"></span
+        ><span id="document-name">Your next perspective</span
+        ><span id="dirty" hidden>Edited</span>
+      </div>
+      <div class="header-actions">
+        <button id="batch-top" title="Batch studio" aria-label="Batch studio">
+          <span data-icon="layers"></span></button
+        ><button id="open" class="soft">
+          <span data-icon="folder"></span>Open image
+          <kbd id="open-shortcut">⌘ O</kbd></button
+        ><button id="export" class="primary" data-image>
+          <span data-icon="export"></span>Export image
+        </button>
+      </div>
+    </header>
+    <div class="workspace">
+      <aside class="library">
+        <div class="panel-title">
+          <span>EXPLORER</span><span class="pill" id="file-count">0</span>
+        </div>
+        <div class="library-caption" id="folder-name">
+          Images in this folder
+        </div>
+        <div id="file-list" class="file-list">
+          <div class="library-empty">
+            <span data-icon="folder"></span>
+            <p>A little room for<br />your big ideas.</p>
+            <small>Open an image to browse<br />the rest of its folder.</small>
+          </div>
+        </div>
+        <button id="batch" class="batch-launch">
+          <span data-icon="layers"></span
+          ><span>Batch studio<small>One workflow. Many images.</small></span
+          ><span>↗</span>
+        </button>
+      </aside>
+      <main>
+        <div class="toolbar">
+          <div class="tool-group">
+            <button id="undo" title="Undo" aria-label="Undo" data-image>
+              <span data-icon="undo"></span></button
+            ><button id="redo" title="Redo" aria-label="Redo" data-image>
+              <span data-icon="redo"></span></button
+            ><i></i
+            ><button
+              data-action="rotate_left"
+              title="Rotate left (L)"
+              aria-label="Rotate left"
+              data-image
+            >
+              <span data-icon="rotate"></span></button
+            ><button
+              data-action="rotate_right"
+              title="Rotate right (R)"
+              aria-label="Rotate right"
+              data-image
+            >
+              <span data-icon="rotate" class="mirror"></span></button
+            ><button id="crop" title="Crop (C)" aria-label="Crop" data-image>
+              <span data-icon="crop"></span></button
+            ><button id="resize" title="Resize" aria-label="Resize" data-image>
+              <span data-icon="resize"></span>
+            </button>
+          </div>
+          <div class="tool-group">
+            <button
+              id="zoom-out"
+              title="Zoom out (-)"
+              aria-label="Zoom out"
+              data-image
+            >
+              −</button
+            ><button id="actual" title="Actual size (1)" data-image>
+              <span id="zoom-label">100%</span></button
+            ><button
+              id="zoom-in"
+              title="Zoom in (+)"
+              aria-label="Zoom in"
+              data-image
+            >
+              +</button
+            ><i></i
+            ><button
+              id="fit"
+              class="active"
+              title="Fit to window (F)"
+              data-image
+            >
+              Fit <span data-icon="fit"></span>
+            </button>
+          </div>
+        </div>
+        <div
+          id="viewport"
+          class="viewport"
+          tabindex="0"
+          role="region"
+          aria-label="Image canvas"
+        >
+          <section id="welcome" class="welcome">
+            <div class="welcome-art">
+              <div class="art-back"></div>
+              <div class="art-front">
+                <svg viewBox="0 0 100 80" aria-hidden="true">
+                  <circle cx="71" cy="23" r="8" />
+                  <path d="M6 67 33 32 53 54 67 40 94 67" />
+                </svg>
+              </div>
+              <span class="art-spark">✦</span>
+            </div>
+            <div class="eyebrow">A FRESH LOOK AT YOUR IMAGES</div>
+            <h1>See the details.<br />Make them yours.</h1>
+            <p>
+              A focused space to view, fine-tune, and transform.<br />Drop an
+              image here to get started.
+            </p>
+            <button id="welcome-open" class="primary">
+              <span data-icon="plus"></span>Open an image
+            </button>
+            <div class="supported">
+              PNG · JPEG · WEBP · GIF · BMP · TIFF · ICO
+            </div>
+          </section>
+          <div id="image-stage" hidden>
+            <img id="image" alt="" draggable="false" />
+            <div id="selection" hidden></div>
+          </div>
+          <div id="crop-hint" hidden>
+            <span>Drag to select an area</span
+            ><button id="apply-crop" class="primary">Apply crop</button
+            ><button id="cancel-crop">Cancel</button>
+          </div>
+          <div id="drop-overlay" hidden>
+            <span data-icon="image"></span>Drop to open
+          </div>
+          <div id="busy" hidden>
+            <span class="spinner"></span><span id="busy-label">Working…</span>
+          </div>
+        </div>
+        <div class="canvas-footer">
+          <span
+            ><span class="tiny-dot"></span
+            ><span id="image-info">Ready when you are</span></span
+          ><span id="navigation"
+            ><button id="previous" aria-label="Previous image" data-image>
+              ←</button
+            ><span id="position">—</span
+            ><button id="next" aria-label="Next image" data-image>
+              →
+            </button></span
+          >
+        </div>
+      </main>
+      <aside class="inspector">
+        <div class="inspector-heading">
+          <div>
+            <div class="eyebrow">THE FINISHING TOUCH</div>
+            <h2>Adjustments</h2>
+          </div>
+          <button
+            id="reset"
+            title="Reset adjustments"
+            aria-label="Reset adjustments"
+            data-image
+          >
+            <span data-icon="reset"></span>
+          </button>
+        </div>
+        <div class="inspector-scroll">
+          <fieldset id="adjustments" disabled>
+            <div class="section-label">LIGHT & COLOR</div>
+            <div id="sliders"></div>
+            <div class="section-label tint-title">COLOR TINT</div>
+            <div id="tints"></div>
+            <div class="section-label actions-title">QUICK ACTIONS</div>
+            <div class="quick-actions">
+              <button data-action="flip_horizontal">
+                <span data-icon="flip"></span>Flip horizontal</button
+              ><button data-action="flip_vertical">
+                <span data-icon="flip" class="vertical"></span>Flip vertical</button
+              ><button data-action="grayscale">
+                <span data-icon="contrast"></span>Grayscale</button
+              ><button data-action="invert">
+                <span data-icon="sun"></span>Invert
+              </button>
+            </div>
+            <button data-action="auto" class="auto-button">
+              <span>✦</span>Auto-adjust colors
+            </button>
+            <div class="section-label actions-title">CLIPBOARD</div>
+            <div class="quick-actions">
+              <button id="copy">Copy image</button
+              ><button id="paste">Paste image</button>
+            </div>
+          </fieldset>
+          <button id="paste-empty" class="text-button">
+            Paste an image from clipboard
+          </button>
+          <div class="edit-note">
+            <span data-icon="shield"></span
+            ><span
+              >Space to experiment.<br />Your original stays untouched until you
+              choose to replace it.</span
+            >
+          </div>
+        </div>
+      </aside>
+    </div>
+    <footer class="statusbar">
+      <span
+        ><span class="tiny-dot green"></span>LOCAL BY DESIGN
+        <span class="status-divider">/</span>
+        <span id="status">All yours. All on your device.</span></span
+      ><button id="help">Keyboard shortcuts <kbd>?</kbd></button>
+    </footer>
+    <div id="toast" role="status" hidden>
+      <span id="toast-text"></span
+      ><button id="toast-close" aria-label="Dismiss message">×</button>
+    </div>
+    <dialog id="resize-dialog" aria-label="Resize image">
+      <form id="resize-form">
+        <div class="dialog-heading">
+          <div class="eyebrow">RESHAPE YOUR IMAGE</div>
+          <h2>Resize image</h2>
+          <p id="resize-original"></p>
+        </div>
+        <div class="dimension-fields">
+          <label
+            >Width
+            <input
+              id="resize-width"
+              type="number"
+              min="1"
+              max="80000000"
+              required /></label
+          ><span>×</span
+          ><label
+            >Height
+            <input
+              id="resize-height"
+              type="number"
+              min="1"
+              max="80000000"
+              required
+          /></label>
+        </div>
+        <label class="check"
+          ><input id="resize-lock" type="checkbox" checked />Keep aspect
+          ratio</label
+        >
+        <p class="muted">Lanczos resampling · maximum 80 megapixels</p>
+        <div class="dialog-footer">
+          <button type="button" data-close="resize-dialog">Cancel</button
+          ><button type="submit" class="primary">Resize image</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="batch-dialog" aria-label="Batch studio">
+      <div class="dialog-heading">
+        <div class="eyebrow">LESS REPETITION. MORE CREATION.</div>
+        <h2>Batch studio</h2>
+        <p>Convert and transform a whole collection in one pass.</p>
+      </div>
+      <div class="batch-grid">
+        <section>
+          <div class="batch-heading">
+            Input images <span class="pill" id="batch-count">0</span>
+          </div>
+          <div id="batch-files" class="batch-files">
+            <p class="muted">Add images or drop files into this window.</p>
+          </div>
+          <div class="dialog-row">
+            <button id="batch-add">+ Add images</button
+            ><button id="batch-clear">Clear</button>
+          </div>
+        </section>
+        <section>
+          <label>Output folder</label>
+          <div class="dialog-row">
+            <input
+              id="batch-directory"
+              readonly
+              placeholder="Choose a folder"
+            /><button id="batch-folder" aria-label="Choose output folder">
+              …
+            </button>
+          </div>
+          <label
+            >Format<select id="batch-format">
+              <option value="png">PNG · lossless</option>
+              <option value="jpg">JPEG · white background</option>
+              <option value="webp">WebP · lossless</option>
+              <option value="bmp">BMP</option>
+              <option value="tiff">TIFF</option>
+            </select></label
+          ><label class="check"
+            ><input type="checkbox" id="batch-resize" />Resize images</label
+          >
+          <div class="dimension-fields">
+            <label
+              >Width<input
+                id="batch-width"
+                type="number"
+                min="1"
+                value="1920" /></label
+            ><span>×</span
+            ><label
+              >Height<input
+                id="batch-height"
+                type="number"
+                min="1"
+                value="1080"
+            /></label>
+          </div>
+          <label class="check"
+            ><input id="batch-aspect" type="checkbox" checked />Fit within
+            dimensions, keep proportions</label
+          ><label
+            >Rotation<select id="batch-rotation">
+              <option value="0">No rotation</option>
+              <option value="90">90° clockwise</option>
+              <option value="180">180°</option>
+              <option value="270">90° counterclockwise</option>
+            </select></label
+          >
+          <div class="batch-filters">
+            <label class="check"
+              ><input id="batch-gray" type="checkbox" />Grayscale</label
+            ><label class="check"
+              ><input id="batch-invert" type="checkbox" />Invert</label
+            ><label class="check"
+              ><input id="batch-auto" type="checkbox" />Auto-adjust</label
+            >
+          </div>
+        </section>
+      </div>
+      <p class="safe-note">
+        Existing files and conflicting names are skipped. Source images are
+        never replaced.
+      </p>
+      <progress id="batch-progress" value="0" max="1" hidden></progress>
+      <div id="batch-result" role="status"></div>
+      <div class="dialog-footer">
+        <button id="batch-close" data-close="batch-dialog">Close</button
+        ><button id="batch-run" class="primary">Process images</button>
+      </div>
+    </dialog>
+    <dialog id="help-dialog" aria-label="Keyboard shortcuts">
+      <div class="dialog-heading">
+        <div class="eyebrow">KEEP YOUR FLOW</div>
+        <h2>Keyboard shortcuts</h2>
+      </div>
+      <div id="shortcut-list"></div>
+      <div class="dialog-footer">
+        <button class="primary" data-close="help-dialog">Got it</button>
+      </div>
+    </dialog>
+  </body>
+</html>
