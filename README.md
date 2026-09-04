@@ -39,6 +39,7 @@ Run `cargo tauri build` on the target platform. On Linux, Tauri 2 needs WebKitGT
 4.1 and GTK development libraries (see the prerequisites above). The old egui/X11
 workaround has been removed; Tauri provides the native window and drag/drop events.
 Linux and Windows builds should be verified on those platforms before distribution.
+
 Run `NO_STRIP=1 cargo tauri build --bundles appimage` if building on an Arch based 
 distro.
 
