@@ -213,7 +213,13 @@ mod ipc_tests {
                     cmd: command.into(),
                     callback: CallbackFn(0),
                     error: CallbackFn(1),
-                    url: "tauri://localhost".parse().unwrap(),
+                    url: if cfg!(target_os = "windows") {
+                        "http://tauri.localhost"
+                    } else {
+                        "tauri://localhost"
+                    }
+                    .parse()
+                    .unwrap(),
                     body: InvokeBody::Json(body),
                     headers: Default::default(),
                     invoke_key: INVOKE_KEY.into(),
