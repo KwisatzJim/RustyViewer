@@ -16,7 +16,16 @@ elif [[ -n "${1:-}" ]]; then
     echo "Usage: ./macos/build_app.sh [--debug]" >&2
     exit 1
 fi
-cargo tauri build --bundles app "${FLAGS[@]}" -- --locked
+if [[ -x "$PROJECT_ROOT/node_modules/.bin/tauri" ]]; then
+    TAURI=("$PROJECT_ROOT/node_modules/.bin/tauri")
+elif cargo tauri --version >/dev/null 2>&1; then
+    TAURI=(cargo tauri)
+else
+    echo "Tauri CLI not found. Run 'npm ci' in the project first." >&2
+    exit 1
+fi
+
+"${TAURI[@]}" build --bundles app "${FLAGS[@]}" -- --locked
 APP_PATH="$PROJECT_ROOT/target/$PROFILE/bundle/macos/RustyViewer.app"
 codesign --force --deep --sign - "$APP_PATH"
 codesign --verify --deep --strict "$APP_PATH"

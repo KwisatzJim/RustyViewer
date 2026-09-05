@@ -1,49 +1,73 @@
 # RustyViewer
 
-A local image viewer and editor inspired by IrfanView, built with Rust and Tauri 2.
-The interface uses plain HTML, CSS and JavaScript: there is no frontend framework,
-remote service, account, or Node runtime in the finished desktop app.
+[![CI](https://github.com/KwisatzJim/RustyViewer/actions/workflows/ci.yml/badge.svg)](https://github.com/KwisatzJim/RustyViewer/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/KwisatzJim/RustyViewer)](https://github.com/KwisatzJim/RustyViewer/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Run
+A focused, local-first image viewer and editor inspired by IrfanView. RustyViewer
+uses Rust and Tauri 2 and keeps image processing on your computer. It has no account,
+telemetry, advertising, or remote image service.
+
+## Install
+
+Download the installer for your operating system from the
+[latest GitHub release](https://github.com/KwisatzJim/RustyViewer/releases/latest):
+
+- **macOS Apple Silicon:** download the `aarch64` DMG.
+- **macOS Intel:** download the `x86_64` DMG.
+- **Windows:** download the NSIS setup `.exe` or MSI installer.
+- **Linux:** download the x64 AppImage or Debian package.
+
+The macOS and Windows packages are not yet signed with paid distribution
+certificates. Your operating system may ask you to confirm that you trust the
+download. On macOS, open **System Settings → Privacy & Security** after the first
+blocked launch and choose **Open Anyway**. On Windows, inspect the SmartScreen
+publisher warning before choosing **Run anyway**.
+
+For an AppImage:
+
+```sh
+chmod +x RustyViewer_*.AppImage
+./RustyViewer_*.AppImage
+```
+
+## Build from source
 
 Install Rust and the [Tauri platform prerequisites](https://v2.tauri.app/start/prerequisites/).
-Then install the Tauri CLI once:
+Then clone the repository and install its locked development tools:
 
 ```sh
-cargo install tauri-cli --version '^2' --locked
+git clone https://github.com/KwisatzJim/RustyViewer.git
+cd RustyViewer
+npm ci
+npm run tauri dev
 ```
 
-From this repository:
+Build an installer with `npm run tauri build`. The finished app embeds its HTML,
+CSS and JavaScript and does not require Node.js.
 
-```sh
-cargo tauri dev
-```
-
-You can also use `cargo run -- path/to/image.png`. The interface is embedded when
-building; `cargo tauri dev` provides the development reload workflow.
-
-### Build a macOS app
+### macOS
 
 ```sh
 ./macos/build_app.sh
 ```
 
-The result is `target/release/bundle/macos/RustyViewer.app`. Double-click it or copy
-it to Applications. For a faster development bundle, add `--debug`.
-The script applies a local ad-hoc signature; it does not produce a Developer ID
-signed or notarized distribution. File associations support Finder's **Open With**.
+The result is `target/release/bundle/macos/RustyViewer.app`. Add `--debug` for a
+faster development bundle. The script applies an ad-hoc signature and verifies it;
+it does not create a Developer ID signed or notarized distribution.
 
 ### Linux / Windows
 
-Run `cargo tauri build` on the target platform. On Linux, Tauri 2 needs WebKitGTK
-4.1 and GTK development libraries (see the prerequisites above). The old egui/X11
-workaround has been removed; Tauri provides the native window and drag/drop events.
-Linux and Windows builds should be verified on those platforms before distribution.
+Run `npm run tauri build` on the target platform. On Linux, Tauri 2 needs WebKitGTK
+4.1 and GTK development libraries (see the prerequisites above).
 
-Run `NO_STRIP=1 cargo tauri build --bundles appimage` if building on an Arch based 
-distro.
+```sh
+NO_STRIP=1 npm run tauri build -- --bundles appimage
+```
 
-## What you can do
+Use that command when building an AppImage on an Arch-based distribution.
+
+## Features
 
 - Open or drop PNG, JPEG, WebP, GIF, BMP, TIFF and ICO images.
 - Browse neighboring files in the folder explorer or with the arrow keys.
@@ -84,7 +108,7 @@ this is not an animation or multipage editor. Images and requested resizes are
 limited to 80 megapixels. Undo retains at most 20 prior revisions, trimming older
 pixel history around a 256 MiB budget (at least one previous revision remains).
 
-## How the project fits together
+## Architecture and development
 
 - `ui/index.html`: window structure, tool panels and dialogs.
 - `ui/styles.css`: layout, colors, controls and responsive sizing.
@@ -115,9 +139,15 @@ Optional JavaScript development tools:
 npm ci
 npm run check
 npm run format:check
+npm run version:check
 ```
 
-Node/npm are only needed for these optional syntax/formatting checks. `npm run
-format` formats the interface source. Rust tests use temporary fixtures and do not
-modify personal photos. See `MORNING_REVIEW.md` for the migration review and the
-remaining manual checks.
+Rust tests use temporary fixtures and do not modify personal photos. Changes to
+visible interactions must also be checked in a real Tauri window because a browser
+preview cannot exercise the native command bridge.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to propose a change,
+[SECURITY.md](SECURITY.md) to report a vulnerability privately, and
+[CHANGELOG.md](CHANGELOG.md) for release history.
+
+RustyViewer is available under the [MIT License](LICENSE).

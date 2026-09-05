@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            label: macOS Apple Silicon
+            args: --target aarch64-apple-darwin --bundles dmg -- --locked
+            rust-targets: aarch64-apple-darwin
+          - platform: macos-latest
+            label: macOS Intel
+            args: --target x86_64-apple-darwin --bundles dmg -- --locked
+            rust-targets: x86_64-apple-darwin
+          - platform: ubuntu-22.04
+            label: Linux x64
+            args: --bundles appimage,deb -- --locked
+            rust-targets: ""
+          - platform: windows-latest
+            label: Windows x64
+            args: --bundles nsis,msi -- --locked
+            rust-targets: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - run: npm ci --ignore-scripts
+      - name: Verify release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run version:check
+
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_SIGNING_IDENTITY: ${{ startsWith(matrix.platform, 'macos') && '-' || '' }}
+        with:
+          tagName: __VERSION__
+          releaseName: RustyViewer v__VERSION__
+          releaseBody: |
+            Download the installer for your operating system below.
+
+            See CHANGELOG.md for highlights and README.md for installation help.
+            macOS and Windows builds are not yet signed with paid distribution certificates,
+            so your operating system may ask you to confirm that you trust the download.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+          releaseAssetNamePattern: RustyViewer_[version]_[platform]_[arch][ext]

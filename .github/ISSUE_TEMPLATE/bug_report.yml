@@ -1,0 +1,40 @@
+name: Bug report
+description: Report something that is broken or behaves unexpectedly
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve RustyViewer. Do not attach private images; use a disposable example when possible.
+  - type: input
+    id: version
+    attributes:
+      label: RustyViewer version
+      placeholder: "For example: 0.2.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating system
+      options: [macOS Apple Silicon, macOS Intel, Linux, Windows]
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include the steps that reproduce the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: format
+    attributes:
+      label: Image details
+      description: Image format, dimensions, and whether transparency or EXIF rotation is involved.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error message or logs
+      render: shell
+

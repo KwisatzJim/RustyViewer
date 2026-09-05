@@ -1,9 +1,12 @@
 [Desktop Entry]
 Type=Application
 Name=RustyViewer
-Comment=A fast, lightweight image viewer
+Comment=A local-first image viewer and editor
+GenericName=Image Viewer
 Exec=rusty_viewer %f
 Icon=rusty_viewer
 Terminal=false
+StartupNotify=true
+StartupWMClass=rusty_viewer
 Categories=Graphics;Viewer;
 MimeType=image/png;image/jpeg;image/webp;image/gif;image/bmp;image/tiff;image/x-icon;
