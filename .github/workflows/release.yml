@@ -110,7 +110,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release upload "$RELEASE_TAG" target/release/bundle/dmg/*.dmg target/release/bundle/dmg/*.sha256 target/release/bundle/sources/*.tar.gz target/release/bundle/sources/*.sha256
+          gh release upload "$RELEASE_TAG" --clobber target/release/bundle/dmg/*.dmg target/release/bundle/dmg/*.sha256 target/release/bundle/sources/*.tar.gz target/release/bundle/sources/*.sha256
 
   application-sources:
     name: Package application sources
@@ -125,4 +125,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release upload "$RELEASE_TAG" target/release/bundle/sources/*.tar.gz target/release/bundle/sources/*.sha256
+        run: gh release upload "$RELEASE_TAG" --clobber target/release/bundle/sources/*.tar.gz target/release/bundle/sources/*.sha256
