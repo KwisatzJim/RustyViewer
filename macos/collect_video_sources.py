@@ -42,10 +42,17 @@ def main():
             if not url.startswith("https://"):
                 raise RuntimeError(f"Missing HTTPS source: {package} {identifier}")
             count += 1
+            revision = receipt.get("source", {}).get("scm_revision")
+            if not revision and url.endswith(".git"):
+                # Some Homebrew bottles omit SCM metadata from the receipt.
+                # Their retained formula still pins the stable source revision.
+                match = re.search(r'url "' + re.escape(url) + r'",\s*revision:\s*"([0-9a-f]{40})"', recipe.read_text())
+                if match:
+                    revision = match.group(1)
             entries.append({"package": package, "name": source["name"],
                             "url": url, "sha256": checksums[0] if len(checksums) == 1 else "",
                             "provenance": source,
-                            "revision": receipt.get("source", {}).get("scm_revision"),
+                            "revision": revision,
                             "file": f"{package}/{identifier}"})
         if not count:
             raise RuntimeError(f"No source archive recorded for {package}")
