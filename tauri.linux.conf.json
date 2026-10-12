@@ -1,0 +1,17 @@
+{
+  "bundle": {
+    "resources": {
+      "target/native-video/rustyviewer-video": "native-video/rustyviewer-video"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libmpv2",
+          "libepoxy0",
+          "libgtk-3-0t64 | libgtk-3-0",
+          "libwebkit2gtk-4.1-0"
+        ]
+      }
+    }
+  }
+}

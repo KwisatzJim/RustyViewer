@@ -8,10 +8,8 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
     exit 1
 fi
 PROFILE="release"
-FLAGS=()
 if [[ "${1:-}" == "--debug" ]]; then
     PROFILE="debug"
-    FLAGS+=(--debug)
 elif [[ -n "${1:-}" ]]; then
     echo "Usage: ./macos/build_app.sh [--debug]" >&2
     exit 1
@@ -25,8 +23,14 @@ else
     exit 1
 fi
 
-"${TAURI[@]}" build --bundles app "${FLAGS[@]}" -- --locked
+./macos/test_native_video.sh --build
+if [[ "$PROFILE" == "debug" ]]; then
+    "${TAURI[@]}" build --bundles app --debug -- --locked
+else
+    "${TAURI[@]}" build --bundles app -- --locked
+fi
 APP_PATH="$PROJECT_ROOT/target/$PROFILE/bundle/macos/RustyViewer.app"
+python3 "$PROJECT_ROOT/macos/bundle_native_video.py" "$APP_PATH"
 codesign --force --deep --sign - "$APP_PATH"
 codesign --verify --deep --strict "$APP_PATH"
 echo "Built: $APP_PATH"

@@ -1,9 +1,9 @@
 [package]
 name = "rusty_viewer"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2024"
 description = "A local-first image viewer and editor built with Rust and Tauri"
-license = "MIT"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/KwisatzJim/RustyViewer"
 homepage = "https://github.com/KwisatzJim/RustyViewer"
 keywords = ["image-viewer", "image-editor", "tauri", "desktop"]
@@ -11,7 +11,7 @@ categories = ["multimedia::images", "gui"]
 publish = false
 
 [dependencies]
-tauri = { version = "2.11.5", features = [] }
+tauri = { version = "2.11.5", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2.7.2"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff", "ico"] }
 arboard = { version = "3.4.1", features = ["wayland-data-control"] }

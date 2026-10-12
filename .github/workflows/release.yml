@@ -19,17 +19,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            label: macOS Apple Silicon
-            args: --target aarch64-apple-darwin --bundles dmg -- --locked
-            rust-targets: aarch64-apple-darwin
-          - platform: macos-latest
-            label: macOS Intel
-            args: --target x86_64-apple-darwin --bundles dmg -- --locked
-            rust-targets: x86_64-apple-darwin
-          - platform: ubuntu-22.04
-            label: Linux x64
-            args: --bundles appimage,deb -- --locked
+          - platform: ubuntu-24.04
+            label: Linux x64 DEB
+            args: --bundles deb -- --locked
             rust-targets: ""
           - platform: windows-latest
             label: Windows x64
@@ -49,12 +41,15 @@ jobs:
           cache: npm
 
       - name: Install Linux system dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libmpv-dev libgtk-3-dev libepoxy-dev
 
       - run: npm ci --ignore-scripts
+      - name: Build Linux native video helper
+        if: matrix.platform == 'ubuntu-24.04'
+        run: ./linux/test_native_video.sh --build
       - name: Verify release tag
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -68,12 +63,66 @@ jobs:
           tagName: __VERSION__
           releaseName: RustyViewer v__VERSION__
           releaseBody: |
-            Download the installer for your operating system below.
+            RustyViewer 0.3.0 adds libmpv playback for all recognized videos on macOS and Linux, with seeking, volume, fullscreen and subtitle visibility controls. The Open dialog shows images and videos together.
 
-            See CHANGELOG.md for highlights and README.md for installation help.
-            macOS and Windows builds are not yet signed with paid distribution certificates,
-            so your operating system may ask you to confirm that you trust the download.
+            Download the installer for your operating system and review README.md and CHANGELOG.md. Mac packages are Apple Silicon only and have a local signature, without Developer ID signing or notarization. The locally tested Mac build requires macOS 27; automated builds may have a different minimum version. Windows installers are unsigned and Windows video playback uses the webview.
+
+            Linux native video is distributed as a DEB with system-library dependencies. The locally tested package runs on Ubuntu 26.04; the automated build uses Ubuntu 24.04. Intel Mac and Linux AppImage packages are paused pending native packaging verification.
+
+            Matching source archives and checksums accompany this release. The Mac source archive includes native-library sources, patches and build recipes; a fresh rebuild of the complete library chain remains unverified.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
           assetNamePattern: RustyViewer_[version]_[platform]_[arch][ext]
+
+  macos-native:
+    name: Build macOS Apple Silicon with native video
+    needs: publish
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Verify release tag and host architecture
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          npm run version:check
+          test "$(uname -m)" = arm64
+      - run: brew install mpv pkgconf
+      - name: Build native app and disk image
+        run: |
+          ./macos/build_app.sh
+          ./macos/package_dmg.sh
+      - name: Prepare matching source package
+        run: |
+          python3 macos/collect_video_sources.py --download
+          cargo vendor --locked target/release/rust-vendor
+          python3 macos/package_sources.py
+      - name: Verify Mac disk image and archived offline build
+        run: python3 macos/verify_packages.py --offline-build
+      - name: Attach Mac binaries and sources to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$RELEASE_TAG" target/release/bundle/dmg/*.dmg target/release/bundle/dmg/*.sha256 target/release/bundle/sources/*.tar.gz target/release/bundle/sources/*.sha256
+
+  application-sources:
+    name: Package application sources
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - run: cargo vendor --locked target/release/rust-vendor
+      - run: python3 scripts/package-application-sources.py
+      - name: Attach application sources to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release upload "$RELEASE_TAG" target/release/bundle/sources/*.tar.gz target/release/bundle/sources/*.sha256

@@ -1,0 +1,18 @@
+[
+  {
+    "path": "Patches/glib/hardcoded-paths.diff",
+    "repository": "https://github.com/Homebrew/homebrew-core",
+    "revision": "a4aed596e437e34812209ab24987a23020ad030e",
+    "sha256": "d846efd0bf62918350da94f850db33b0f8727fece9bfaf8164566e3094e80c97",
+    "last_change_revision": "1cf441a09f572566b1b7c4695a4d169d1177248a",
+    "last_change_date": "2025-10-15T15:59:02Z"
+  },
+  {
+    "path": "Patches/libtool/configure-big_sur.diff",
+    "repository": "https://github.com/Homebrew/homebrew-core",
+    "revision": "a4aed596e437e34812209ab24987a23020ad030e",
+    "sha256": "35acd6aebc19843f1a2b3a63e880baceb0f5278ab1ace661e57a502d9d78c93c",
+    "last_change_revision": "1cf441a09f572566b1b7c4695a4d169d1177248a",
+    "last_change_date": "2025-10-15T15:59:02Z"
+  }
+]

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/KwisatzJim/RustyViewer/actions/workflows/ci.yml/badge.svg)](https://github.com/KwisatzJim/RustyViewer/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/KwisatzJim/RustyViewer)](https://github.com/KwisatzJim/RustyViewer/releases/latest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: GPLv3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 
 A focused, local-first image viewer and editor inspired by IrfanView. RustyViewer
 uses Rust and Tauri 2 and keeps image processing on your computer. It has no account,
@@ -13,23 +13,31 @@ telemetry, advertising, or remote image service.
 Download the installer for your operating system from the
 [latest GitHub release](https://github.com/KwisatzJim/RustyViewer/releases/latest):
 
-- **macOS Apple Silicon:** download the `aarch64` DMG.
-- **macOS Intel:** download the `x86_64` DMG.
-- **Windows:** download the NSIS setup `.exe` or MSI installer.
-- **Linux:** download the x64 AppImage or Debian package.
+- **macOS Apple Silicon:** use the `aarch64` DMG. The locally tested 0.3.0 build
+  requires macOS 27. It includes libmpv and its libraries; Homebrew is not required
+  on the user's Mac. CI-built packages may have a different minimum macOS version.
+- **Linux x64:** use the DEB and install it with `sudo apt install ./package.deb`.
+  This resolves its system-library dependencies. The local package was tested on
+  Ubuntu 26.04; the automated release build uses Ubuntu 24.04 and needs separate
+  installation testing.
+- **Windows:** NSIS `.exe` and MSI packages are built by the release workflow.
+  Native libmpv playback is currently implemented on Mac and Linux; Windows
+  video playback uses the webview and depends on its supported codecs.
 
-The macOS and Windows packages are not yet signed with paid distribution
-certificates. Your operating system may ask you to confirm that you trust the
-download. On macOS, open **System Settings → Privacy & Security** after the first
-blocked launch and choose **Open Anyway**. On Windows, inspect the SmartScreen
-publisher warning before choosing **Run anyway**.
+Intel Mac and Linux AppImage packages are paused for 0.3.0 until their native
+video packaging has been verified. Recognition currently covers MP4, M4V, MOV,
+WebM, OGV, MKV and AVI. A file's extension does not guarantee that its particular
+encoding can be decoded.
 
-For an AppImage:
+The Mac app has a local ad-hoc signature and is **not Developer ID signed or
+notarized**. On a blocked launch, review **System Settings → Privacy & Security**
+and choose **Open Anyway** if you trust the download. Windows installers are
+unsigned and can show a SmartScreen warning.
 
-```sh
-chmod +x RustyViewer_*.AppImage
-./RustyViewer_*.AppImage
-```
+Matching source archives and SHA-256 checksums accompany the release. Mac native
+library sources, patches and recipes are included in the Mac source archive.
+The application source archive includes Rust dependency sources for building
+RustyViewer on Linux and Windows. Linux uses the distribution's libmpv package.
 
 ## Build from source
 
@@ -40,15 +48,18 @@ Then clone the repository and install its locked development tools:
 git clone https://github.com/KwisatzJim/RustyViewer.git
 cd RustyViewer
 npm ci
+# Build the native helper first, using the instructions for your platform below.
 npm run tauri dev
 ```
 
-Build an installer with `npm run tauri build`. The finished app embeds its HTML,
+Build macOS and Linux with their platform scripts below to include native video
+playback. On Windows, build an installer with `npm run tauri build`. The finished app embeds its HTML,
 CSS and JavaScript and does not require Node.js.
 
 ### macOS
 
 ```sh
+brew install mpv pkgconf
 ./macos/build_app.sh
 ```
 
@@ -56,19 +67,95 @@ The result is `target/release/bundle/macos/RustyViewer.app`. Add `--debug` for a
 faster development bundle. The script applies an ad-hoc signature and verifies it;
 it does not create a Developer ID signed or notarized distribution.
 
-### Linux / Windows
-
-Run `npm run tauri build` on the target platform. On Linux, Tauri 2 needs WebKitGTK
-4.1 and GTK development libraries (see the prerequisites above).
+After building the release app, create a disk image with:
 
 ```sh
-NO_STRIP=1 npm run tauri build -- --bundles appimage
+./macos/package_dmg.sh
 ```
 
-Use that command when building an AppImage on an Arch-based distribution.
+The disk image and its SHA-256 checksum are written to
+`target/release/bundle/dmg/`. This packages the completed app, including its native
+video libraries and notices. Prepare the corresponding source package described
+in `THIRD_PARTY_NOTICES.md` before publishing binaries.
+
+Prepare the matching source archive after the app build:
+
+```sh
+python3 macos/collect_video_sources.py --download
+cargo vendor --locked target/release/rust-vendor
+python3 macos/package_sources.py
+python3 macos/verify_packages.py --offline-build
+```
+
+The archive includes the source snapshot, Rust dependencies, native library
+sources, patches, recipes, provenance and a checksum manifest. Build instructions
+and validation limits are in `macos/SOURCE_BUILD.md`. A fresh rebuild of the full
+library chain has not yet been verified. The archive and checksum are written to
+`target/release/bundle/sources/`.
+
+### Native video playback (macOS and Linux)
+
+All recognized videos open in a separate libmpv window on macOS and Linux.
+Builds made with `./macos/build_app.sh` include the Mac native player and its
+libraries, so users do not need Homebrew. Homebrew is needed on the build machine.
+The bundle’s minimum macOS version follows its bundled libraries; the current
+Homebrew libraries on this build machine require macOS 27.
+
+```sh
+brew install mpv pkgconf
+./macos/test_native_video.sh --build
+npm run tauri dev
+```
+
+Open or drop a video in RustyViewer. Use the video window’s controls for pause,
+seeking, volume and fullscreen. The **Subtitles** checkbox shows or hides the
+selected subtitle track. Opening another file closes the previous native
+window; **Reopen video window** starts the current video again. To test the helper
+on its own, run `./macos/test_native_video.sh` and choose a video.
+
+### Linux (Ubuntu/Debian)
+
+Install the Tauri Linux prerequisites and `libmpv-dev`, `libgtk-3-dev` and
+`libepoxy-dev`, then run:
+
+```sh
+npm ci
+./linux/build_app.sh
+```
+
+The DEB is written to `target/release/bundle/deb/`. It includes the native helper
+and declares system video-library dependencies. Install with `sudo apt install
+./path/to/package.deb` so missing dependencies are resolved. A package built on
+Ubuntu 26.04 is intended for that system; compatibility with older distributions
+has not been verified.
+
+For Linux development, build the helper before opening the app:
+
+```sh
+./linux/test_native_video.sh --build
+npm run tauri dev
+```
+
+### Windows
+
+Run `npm run tauri build` to create NSIS and MSI installers. Windows currently
+uses the webview for video playback and has no bundled libmpv helper.
+
+Create the application source archive for Linux and Windows with:
+
+```sh
+cargo vendor --locked target/release/rust-vendor
+python3 scripts/package-application-sources.py
+```
+
+Its Cargo configuration selects the included dependency sources. Building with
+`cargo build --release --locked --offline --features custom-protocol` does not
+fetch Rust crates; platform development libraries and build tools are still
+required.
 
 ## Features
 
+- Play MP4, M4V, MOV, WebM, OGV, MKV and AVI videos through libmpv on macOS and Linux, with playback, seeking, volume, fullscreen and a subtitle visibility checkbox. Windows uses the webview player where supported. Video editing is not supported.
 - Open or drop PNG, JPEG, WebP, GIF, BMP, TIFF and ICO images.
 - Browse neighboring files in the folder explorer or with the arrow keys.
 - Zoom, fit to the window, view at 100%, and drag to pan.
@@ -116,7 +203,9 @@ pixel history around a 256 MiB budget (at least one previous revision remains).
 - `src/main.rs`: the Tauri application, native events and command boundary.
 - `src/editor.rs`: document revisions, decoding, export and batch processing.
 - `src/image_ops.rs`: reusable image adjustments and transformations.
-- `src/navigation.rs`: folder scanning and supported image types.
+- `src/navigation.rs`: folder scanning and supported image/video types.
+- `macos/native_video.m` and `linux/native_video.c`: platform video windows using libmpv.
+- `tauri.linux.conf.json`: native helper resources and DEB runtime dependencies.
 - `src/settings.rs`: remembers the last batch output directory.
 - `tauri.conf.json` and `capabilities/main.json`: packaging and allowed native APIs.
 
@@ -150,4 +239,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to propose a change,
 [SECURITY.md](SECURITY.md) to report a vulnerability privately, and
 [CHANGELOG.md](CHANGELOG.md) for release history.
 
-RustyViewer is available under the [MIT License](LICENSE).
+RustyViewer is available under [GPL-3.0-or-later](LICENSE). See
+[third-party notices](THIRD_PARTY_NOTICES.md) for bundled video components.

@@ -22,7 +22,7 @@
         <button id="batch-top" title="Batch studio" aria-label="Batch studio">
           <span data-icon="layers"></span></button
         ><button id="open" class="soft">
-          <span data-icon="folder"></span>Open image
+          <span data-icon="folder"></span>Open file
           <kbd id="open-shortcut">⌘ O</kbd></button
         ><button id="export" class="primary" data-image>
           <span data-icon="export"></span>Export image
@@ -41,7 +41,7 @@
           <div class="library-empty">
             <span data-icon="folder"></span>
             <p>A little room for<br />your big ideas.</p>
-            <small>Open an image to browse<br />the rest of its folder.</small>
+            <small>Open a file to browse<br />the rest of its folder.</small>
           </div>
         </div>
         <button id="batch" class="batch-launch">
@@ -111,7 +111,7 @@
           class="viewport"
           tabindex="0"
           role="region"
-          aria-label="Image canvas"
+          aria-label="Image and video viewer"
         >
           <section id="welcome" class="welcome">
             <div class="welcome-art">
@@ -128,14 +128,32 @@
             <h1>See the details.<br />Make them yours.</h1>
             <p>
               A focused space to view, fine-tune, and transform.<br />Drop an
-              image here to get started.
+              image or video here to get started.
             </p>
             <button id="welcome-open" class="primary">
-              <span data-icon="plus"></span>Open an image
+              <span data-icon="plus"></span>Open a file
             </button>
             <div class="supported">
-              PNG · JPEG · WEBP · GIF · BMP · TIFF · ICO
+              Images · MP4 · MOV · WEBM · other videos
             </div>
+          </section>
+          <video
+            id="video"
+            controls
+            playsinline
+            preload="metadata"
+            hidden
+            aria-label="Video player"
+          ></video>
+          <section id="native-video-note" class="welcome" hidden>
+            <h2>Playing in the video window</h2>
+            <p>
+              Use that window’s controls to pause, seek, adjust volume, or enter
+              fullscreen.
+            </p>
+            <button id="reopen-video" class="primary">
+              Reopen video window
+            </button>
           </section>
           <div id="image-stage" hidden>
             <img id="image" alt="" draggable="false" />
@@ -158,10 +176,10 @@
             ><span class="tiny-dot"></span
             ><span id="image-info">Ready when you are</span></span
           ><span id="navigation"
-            ><button id="previous" aria-label="Previous image" data-image>
+            ><button id="previous" aria-label="Previous file" data-image>
               ←</button
             ><span id="position">—</span
-            ><button id="next" aria-label="Next image" data-image>
+            ><button id="next" aria-label="Next file" data-image>
               →
             </button></span
           >

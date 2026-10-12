@@ -13,7 +13,19 @@ pub fn is_supported_image(path: &Path) -> bool {
     }
 }
 
-/// Scan the parent directory of `current_path` for all supported images,
+/// Recognized video containers; macOS and Linux play them through libmpv.
+pub fn is_supported_video(path: &Path) -> bool {
+    path.extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|ext| {
+            matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "mp4" | "m4v" | "mov" | "webm" | "ogv" | "mkv" | "avi"
+            )
+        })
+}
+
+/// Scan the parent directory of `current_path` for supported images and videos,
 /// sort them alphabetically, and find the index of `current_path`.
 pub fn get_image_siblings(current_path: &Path) -> (Vec<PathBuf>, usize) {
     let current_abs = current_path
@@ -29,7 +41,7 @@ pub fn get_image_siblings(current_path: &Path) -> (Vec<PathBuf>, usize) {
     if let Ok(entries) = std::fs::read_dir(parent) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file() && is_supported_image(&path) {
+            if path.is_file() && (is_supported_image(&path) || is_supported_video(&path)) {
                 if let Ok(abs_path) = path.canonicalize() {
                     files.push(abs_path);
                 } else {
@@ -73,6 +85,26 @@ mod tests {
         assert!(is_supported_image(Path::new("test.webp")));
         assert!(!is_supported_image(Path::new("test.txt")));
         assert!(!is_supported_image(Path::new("test")));
+    }
+
+    #[test]
+    fn navigation_includes_videos_but_image_filters_do_not() {
+        let dir = tempdir().unwrap();
+        let image = dir.path().join("a.png");
+        let video = dir.path().join("b.MP4");
+        let text = dir.path().join("c.txt");
+        for path in [&image, &video, &text] {
+            File::create(path).unwrap();
+        }
+        assert!(is_supported_video(&video));
+        assert!(!is_supported_image(&video));
+        assert!(!is_supported_video(&text));
+        let (siblings, index) = get_image_siblings(&video);
+        assert_eq!(
+            siblings,
+            vec![image.canonicalize().unwrap(), video.canonicalize().unwrap()]
+        );
+        assert_eq!(index, 1);
     }
 
     #[test]

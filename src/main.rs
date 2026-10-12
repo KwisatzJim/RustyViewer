@@ -7,6 +7,69 @@ use std::{
 use tauri::{Emitter, Manager, State};
 #[derive(Default, Clone)]
 struct AppState(Arc<Mutex<Editor>>, Arc<Mutex<Option<arboard::Clipboard>>>);
+#[derive(Default, Clone)]
+struct NativeVideo(Arc<Mutex<Option<std::process::Child>>>);
+impl NativeVideo {
+    fn stop(&self) {
+        if let Ok(mut child) = self.0.lock()
+            && let Some(mut child) = child.take()
+        {
+            // Reap the process even if the user already closed its window.
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn open(&self, app: &tauri::AppHandle, path: &std::path::Path) -> Result<(), String> {
+        #[cfg(target_os = "macos")]
+        let (resource, development, build_script) = (
+            "native-video/RustyViewer Video.app/Contents/MacOS/rustyviewer-video",
+            "target/native-video/RustyViewer Video.app/Contents/MacOS/rustyviewer-video",
+            "macos/build_app.sh",
+        );
+        #[cfg(target_os = "linux")]
+        let (resource, development, build_script) = (
+            "native-video/rustyviewer-video",
+            "target/native-video/rustyviewer-video",
+            "linux/build_app.sh",
+        );
+        let bundled = app
+            .path()
+            .resource_dir()
+            .map_err(|e| e.to_string())?
+            .join(resource);
+        let helper = if bundled.is_file() {
+            bundled
+        } else if cfg!(debug_assertions) {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(development)
+        } else {
+            return Err(format!(
+                "The bundled native video player is missing. Rebuild with {build_script}."
+            ));
+        };
+        if !helper.is_file() {
+            return Err(format!("Build the native player first: ./{build_script}"));
+        }
+        #[cfg(debug_assertions)]
+        eprintln!("RustyViewer: native player {}", helper.display());
+        let mut guard = self.0.lock().map_err(|e| e.to_string())?;
+        // Launch successfully before replacing a previous playback window.
+        let next = std::process::Command::new(helper)
+            .arg(path)
+            // Ignore loader overrides; the packaged player uses its own libraries.
+            .env_remove("DYLD_LIBRARY_PATH")
+            .env_remove("DYLD_FALLBACK_LIBRARY_PATH")
+            .env_remove("DYLD_FRAMEWORK_PATH")
+            .env_remove("DYLD_INSERT_LIBRARIES")
+            .spawn()
+            .map_err(|e| format!("Could not open the native video player: {e}"))?;
+        if let Some(mut previous) = guard.replace(next) {
+            let _ = previous.kill();
+            let _ = previous.wait();
+        }
+        Ok(())
+    }
+}
 async fn work<T: Send + 'static>(
     state: &AppState,
     f: impl FnOnce(&mut Editor) -> Result<T, String> + Send + 'static,
@@ -22,13 +85,72 @@ async fn work<T: Send + 'static>(
     .await
     .map_err(|e| e.to_string())?
 }
+#[derive(serde::Serialize)]
+struct VideoView {
+    name: String,
+    path: String,
+    siblings: Vec<String>,
+    index: usize,
+    bytes: u64,
+    native: bool,
+}
+#[tauri::command]
+async fn open_video(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    native_video: State<'_, NativeVideo>,
+    path: PathBuf,
+    discard: bool,
+) -> Result<VideoView, String> {
+    let native_video = native_video.inner().clone();
+    work(&state, move |editor| {
+        if editor.dirty() && !discard {
+            return Err("Discard or export the current image changes first.".into());
+        }
+        let path = path.canonicalize().map_err(|e| e.to_string())?;
+        if !path.is_file() || !rusty_viewer::navigation::is_supported_video(&path) {
+            return Err("Choose a supported video file.".into());
+        }
+        let bytes = path.metadata().map_err(|e| e.to_string())?.len();
+        let native = cfg!(any(target_os = "macos", target_os = "linux"));
+        if native {
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            native_video.open(&app, &path)?;
+        } else {
+            app.asset_protocol_scope()
+                .allow_file(&path)
+                .map_err(|e| e.to_string())?;
+            native_video.stop();
+        }
+        let (siblings, index) = rusty_viewer::navigation::get_image_siblings(&path);
+        *editor = Editor::default();
+        Ok(VideoView {
+            name: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned(),
+            path: path.to_string_lossy().into_owned(),
+            siblings: siblings
+                .into_iter()
+                .map(|p| p.to_string_lossy().into_owned())
+                .collect(),
+            index,
+            bytes,
+            native,
+        })
+    })
+    .await
+}
 #[tauri::command]
 async fn open_image(
     state: State<'_, AppState>,
+    native_video: State<'_, NativeVideo>,
     path: PathBuf,
     discard: bool,
 ) -> Result<View, String> {
     let view = work(&state, move |e| e.open(path, discard)).await?;
+    native_video.stop();
     #[cfg(debug_assertions)]
     eprintln!(
         "RustyViewer: image loaded ({} x {})",
@@ -76,8 +198,12 @@ async fn copy_image(state: State<'_, AppState>) -> Result<(), String> {
     .await
 }
 #[tauri::command]
-async fn paste_image(state: State<'_, AppState>, discard: bool) -> Result<View, String> {
-    work(&state, move |e| {
+async fn paste_image(
+    state: State<'_, AppState>,
+    native_video: State<'_, NativeVideo>,
+    discard: bool,
+) -> Result<View, String> {
+    let view = work(&state, move |e| {
         let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
         let image = clipboard
             .get_image()
@@ -89,7 +215,9 @@ async fn paste_image(state: State<'_, AppState>, discard: bool) -> Result<View, 
             .ok_or("Invalid clipboard image.")?;
         e.paste(image::DynamicImage::ImageRgba8(image), discard)
     })
-    .await
+    .await?;
+    native_video.stop();
+    Ok(view)
 }
 #[tauri::command]
 async fn run_batch(app: tauri::AppHandle, options: BatchOptions) -> Result<BatchResult, String> {
@@ -122,6 +250,7 @@ fn startup(launch: State<'_, LaunchState>) -> (Option<String>, String) {
 }
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
+    app.state::<NativeVideo>().stop();
     app.state::<Quitting>()
         .0
         .store(true, std::sync::atomic::Ordering::SeqCst);
@@ -135,9 +264,11 @@ fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
+        .manage(NativeVideo::default())
         .manage(Quitting::default())
         .manage(LaunchState::default())
         .invoke_handler(tauri::generate_handler![
+            open_video,
             open_image,
             adjust_image,
             edit_image,
@@ -195,6 +326,7 @@ mod ipc_tests {
     fn frontend_commands_open_adjust_undo_export_and_report_errors() {
         let app = mock_builder()
             .manage(AppState::default())
+            .manage(NativeVideo::default())
             .invoke_handler(tauri::generate_handler![
                 open_image,
                 adjust_image,

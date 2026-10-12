@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0] - 2026-10-11
+
+### Added
+
+- Video playback with folder navigation alongside images.
+- Native playback for all recognized videos on macOS and Linux using libmpv, with seeking,
+  volume, fullscreen and subtitle visibility controls.
+- Mac disk-image packaging and source collection with checksum verification,
+  pinned library build recipes and vendored Rust dependencies.
+
+### Changed
+
+- RustyViewer is now GPL-3.0-or-later; original MIT notices remain included.
+- The current Apple Silicon Mac package requires macOS 27 because of its
+  bundled library builds. It uses a local signature and is not notarized.
+- Linux native video integration is tested on Ubuntu 26.04; Intel Mac packaging remains unverified.
+
 ## [0.2.1] - 2026-09-05
 
 ### Added

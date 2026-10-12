@@ -990,3 +990,12 @@ progress {
   min-height: 27px;
   padding: 5px 9px;
 }
+
+#video {
+  position: absolute;
+  inset: 24px;
+  width: calc(100% - 48px);
+  height: calc(100% - 48px);
+  object-fit: contain;
+  background: #000;
+}

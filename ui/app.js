@@ -56,15 +56,15 @@ function notify(message, error = false) {
 function controls() {
   document
     .querySelectorAll("[data-image]")
-    .forEach((el) => (el.disabled = !doc || working));
-  $("adjustments").disabled = !doc || working;
+    .forEach((el) => (el.disabled = !doc || doc.video || working));
+  $("adjustments").disabled = !doc || doc.video || working;
   $("open").disabled = working;
   $("welcome-open").disabled = working;
   $("undo").disabled = !doc?.can_undo || working;
   $("redo").disabled = !doc?.can_redo || working;
   $("previous").disabled = !doc || doc.siblings.length < 2 || working;
   $("next").disabled = $("previous").disabled;
-  $("reset").disabled = !doc || working;
+  $("reset").disabled = !doc || doc.video || working;
   $("paste-empty").hidden = !!doc;
   $("paste-empty").disabled = working;
 }
@@ -98,7 +98,7 @@ function syncSliders() {
     "blue",
   ]) {
     const el = $(`slider-${key}`);
-    el.value = doc?.adjustments[key] ?? (key === "gamma" ? 1 : 0);
+    el.value = doc?.adjustments?.[key] ?? (key === "gamma" ? 1 : 0);
     sliderLabel(key);
   }
 }
@@ -148,16 +148,26 @@ function setDocument(value, resetView = false) {
   if (!value) return;
   const dimensionsChanged =
     doc && (doc.width !== value.width || doc.height !== value.height);
+  if (doc?.video) {
+    $("video").pause();
+    $("video").removeAttribute("src");
+    $("video").load();
+  }
   doc = value;
+  $("video").hidden = !doc.video || doc.native;
+  $("native-video-note").hidden = !doc.native;
+  if (doc.video && !doc.native)
+    $("video").src = tauri.core.convertFileSrc(doc.path);
   $("welcome").hidden = true;
-  $("image-stage").hidden = false;
-  $("image").src = doc.preview;
+  $("image-stage").hidden = !!doc.video;
+  if (!doc.video) $("image").src = doc.preview;
   $("image").alt = doc.name;
   $("document-name").textContent = doc.name;
   $("document-name").title = doc.path || doc.name;
   $("dirty").hidden = !doc.dirty;
-  $("image-info").textContent =
-    `${doc.width.toLocaleString()} × ${doc.height.toLocaleString()} px${doc.bytes ? " · " + (doc.bytes / 1024 / 1024).toFixed(2) + " MB" : ""}`;
+  $("image-info").textContent = doc.video
+    ? `Video · ${(doc.bytes / 1024 / 1024).toFixed(2)} MB`
+    : `${doc.width.toLocaleString()} × ${doc.height.toLocaleString()} px${doc.bytes ? " · " + (doc.bytes / 1024 / 1024).toFixed(2) + " MB" : ""}`;
   $("position").textContent = doc.siblings.length
     ? `${doc.index + 1} / ${doc.siblings.length}`
     : "1 / 1";
@@ -192,7 +202,7 @@ function setDocument(value, resetView = false) {
   controls();
 }
 function layoutImage() {
-  if (!doc) return;
+  if (!doc || doc.video) return;
   const width = $("viewport").clientWidth,
     height = $("viewport").clientHeight;
   if (fit)
@@ -207,7 +217,7 @@ function layoutImage() {
   renderCrop();
 }
 function changeZoom(value) {
-  if (!doc) return;
+  if (!doc || doc.video) return;
   fit = false;
   zoom = Math.max(0.01, Math.min(32, value));
   layoutImage();
@@ -238,7 +248,7 @@ function imagePoint(event) {
   };
 }
 $("image-stage").onpointerdown = (e) => {
-  if (!doc || working || e.button !== 0) return;
+  if (!doc || doc.video || working || e.button !== 0) return;
   $("image-stage").setPointerCapture(e.pointerId);
   pointer = {
     start: imagePoint(e),
@@ -275,14 +285,14 @@ $("image-stage").onpointercancel = () => (pointer = null);
 $("viewport").addEventListener(
   "wheel",
   (e) => {
-    if (!doc) return;
+    if (!doc || doc.video) return;
     e.preventDefault();
     changeZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
   },
   { passive: false },
 );
 $("viewport").ondblclick = () => {
-  if (doc) {
+  if (doc && !doc.video) {
     fit = true;
     pan = { x: 0, y: 0 };
     layoutImage();
@@ -303,19 +313,35 @@ async function discardChanges() {
     ))
   );
 }
+const videoExtensions = ["mp4", "m4v", "mov", "webm", "ogv", "mkv", "avi"];
+$("reopen-video").onclick = () => {
+  if (doc?.native) openPath(doc.path);
+};
+async function loadPath(path) {
+  const video = videoExtensions.includes(path.split(".").pop().toLowerCase());
+  const value = await invoke(video ? "open_video" : "open_image", {
+    path,
+    discard: true,
+  });
+  setDocument(video ? { ...value, video: true } : value, true);
+}
+$("video").onerror = () =>
+  notify(
+    "This video could not be played. Its format or codec may not be supported by your operating system.",
+    true,
+  );
 async function openPath(path) {
-  return run("Opening image…", async () => {
-    if (await discardChanges())
-      setDocument(await invoke("open_image", { path, discard: true }), true);
+  return run("Opening file…", async () => {
+    if (await discardChanges()) await loadPath(path);
   });
 }
 async function openDialog() {
-  return run("Choose an image…", async () => {
+  return run("Choose a file…", async () => {
     const path = await tauri.dialog.open({
       multiple: false,
       filters: [
         {
-          name: "Images",
+          name: "Images and videos",
           extensions: [
             "png",
             "jpg",
@@ -326,16 +352,16 @@ async function openDialog() {
             "tif",
             "tiff",
             "ico",
+            ...videoExtensions,
           ],
         },
       ],
     });
-    if (path && (await discardChanges()))
-      setDocument(await invoke("open_image", { path, discard: true }), true);
+    if (path && (await discardChanges())) await loadPath(path);
   });
 }
 async function exportImage() {
-  if (!doc) return;
+  if (!doc || doc.video) return;
   return run("Exporting image…", async () => {
     const stem = doc.name.replace(/\.[^.]+$/, "");
     const path = await tauri.dialog.save({
@@ -356,7 +382,7 @@ async function exportImage() {
   });
 }
 function edit(action, args = []) {
-  if (!doc) return;
+  if (!doc || doc.video) return;
   return run("Updating image…", async () => {
     setDocument(await invoke("edit_image", { action, args }));
     setCrop(false);
@@ -432,7 +458,7 @@ document
   .querySelectorAll("[data-close]")
   .forEach((el) => (el.onclick = () => $(el.dataset.close).close()));
 $("resize").onclick = () => {
-  if (!doc) return;
+  if (!doc || doc.video) return;
   $("resize-width").value = doc.width;
   $("resize-height").value = doc.height;
   $("resize-original").textContent =
@@ -611,11 +637,12 @@ $("batch-dialog").addEventListener("cancel", (e) => {
   if (batchRunning) e.preventDefault();
 });
 const shortcuts = [
-  ["Open image", `${mod} O`],
+  ["Play / pause video", "Space"],
+  ["Open image or video", `${mod} O`],
   ["Export image", `${mod} S`],
   ["Undo / redo", `${mod} Z / ${mod} Shift Z`],
   ["Copy / paste image", `${mod} C / ${mod} V`],
-  ["Previous / next image", "← / →"],
+  ["Previous / next file", "← / →"],
   ["Rotate left / right", "L / R"],
   ["Flip horizontal / vertical", "H / V"],
   ["Grayscale / invert", "G / I"],
@@ -681,12 +708,19 @@ document.addEventListener("keydown", (e) => {
     "=": () => $("zoom-in").click(),
     "-": () => $("zoom-out").click(),
     c: () => {
-      if (doc) setCrop(!cropMode);
+      if (doc && !doc.video) setCrop(!cropMode);
     },
     escape: () => setCrop(false),
     enter: () => {
       if (cropRect && cropRect.w && cropRect.h)
         edit("crop", [cropRect.x, cropRect.y, cropRect.w, cropRect.h]);
+    },
+    " ": () => {
+      if (doc?.video && !doc.native) {
+        const player = $("video");
+        if (player.paused) player.play().catch((e) => notify(e.message, true));
+        else player.pause();
+      }
     },
     "?": () => $("help").click(),
   }[key];
