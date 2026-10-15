@@ -16,7 +16,7 @@ tauri-plugin-dialog = "2.7.2"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "tiff", "ico"] }
 arboard = { version = "3.4.1", features = ["wayland-data-control"] }
 serde = { version = "1", features = ["derive"] }
-base64 = "0.22"
+base64 = "0.23"
 dirs = "6.0"
 tempfile = "3"
 
