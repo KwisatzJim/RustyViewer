@@ -206,7 +206,35 @@ pub fn apply_adjustments(
     // 2. Contrast: slider -1.0 to 1.0 -> maps to -100.0 to 100.0
     if contrast.abs() > 0.001 {
         let val = contrast * 100.0;
-        adjusted = adjusted.adjust_contrast(val);
+        let mut contrasted = adjusted.adjust_contrast(val);
+        // image's contrast operation also transforms alpha. Keep the original
+        // transparency without converting the image's channel depth or format.
+        macro_rules! restore_alpha {
+            ($before:expr, $after:expr, $channel:expr) => {
+                for (before, after) in $before.pixels().zip($after.pixels_mut()) {
+                    after[$channel] = before[$channel];
+                }
+            };
+        }
+        match (&adjusted, &mut contrasted) {
+            (DynamicImage::ImageLumaA8(before), DynamicImage::ImageLumaA8(after)) => {
+                restore_alpha!(before, after, 1);
+            }
+            (DynamicImage::ImageLumaA16(before), DynamicImage::ImageLumaA16(after)) => {
+                restore_alpha!(before, after, 1);
+            }
+            (DynamicImage::ImageRgba8(before), DynamicImage::ImageRgba8(after)) => {
+                restore_alpha!(before, after, 3);
+            }
+            (DynamicImage::ImageRgba16(before), DynamicImage::ImageRgba16(after)) => {
+                restore_alpha!(before, after, 3);
+            }
+            (DynamicImage::ImageRgba32F(before), DynamicImage::ImageRgba32F(after)) => {
+                restore_alpha!(before, after, 3);
+            }
+            _ => {}
+        }
+        adjusted = contrasted;
     }
 
     // 3. Saturation: slider -1.0 to 1.0
@@ -231,6 +259,46 @@ pub fn apply_adjustments(
 mod tests {
     use super::*;
     use image::{ImageBuffer, Rgba};
+
+    #[test]
+    fn contrast_preserves_alpha_at_each_channel_depth() {
+        let images = [
+            DynamicImage::ImageRgba8(ImageBuffer::from_pixel(1, 1, Rgba([160, 160, 160, 64]))),
+            DynamicImage::ImageRgba16(ImageBuffer::from_pixel(
+                1,
+                1,
+                Rgba([40000, 40000, 40000, 12345]),
+            )),
+            DynamicImage::ImageRgba32F(ImageBuffer::from_pixel(1, 1, Rgba([0.6, 0.6, 0.6, 0.25]))),
+            DynamicImage::ImageLumaA8(ImageBuffer::from_pixel(1, 1, image::LumaA([160, 64]))),
+            DynamicImage::ImageLumaA16(ImageBuffer::from_pixel(1, 1, image::LumaA([40000, 12345]))),
+        ];
+        for image in images {
+            for contrast in [-0.5, 0.5] {
+                let adjusted = apply_adjustments(&image, 0., contrast, 0., 1., [0.; 3]);
+                assert_eq!(adjusted.color(), image.color());
+                match (&image, &adjusted) {
+                    (DynamicImage::ImageRgba8(a), DynamicImage::ImageRgba8(b)) => {
+                        assert_eq!(a[(0, 0)][3], b[(0, 0)][3])
+                    }
+                    (DynamicImage::ImageRgba16(a), DynamicImage::ImageRgba16(b)) => {
+                        assert_eq!(a[(0, 0)][3], b[(0, 0)][3])
+                    }
+                    (DynamicImage::ImageRgba32F(a), DynamicImage::ImageRgba32F(b)) => {
+                        assert_eq!(a[(0, 0)][3], b[(0, 0)][3])
+                    }
+                    (DynamicImage::ImageLumaA8(a), DynamicImage::ImageLumaA8(b)) => {
+                        assert_eq!(a[(0, 0)][1], b[(0, 0)][1])
+                    }
+                    (DynamicImage::ImageLumaA16(a), DynamicImage::ImageLumaA16(b)) => {
+                        assert_eq!(a[(0, 0)][1], b[(0, 0)][1])
+                    }
+                    _ => panic!("Unexpected image format"),
+                }
+                assert_ne!(adjusted.as_bytes(), image.as_bytes());
+            }
+        }
+    }
 
     #[test]
     fn test_gamma_correction() {

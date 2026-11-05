@@ -52,7 +52,7 @@ def minimum_os(path):
     text = run("/usr/bin/otool", "-l", str(path))
     versions = re.findall(r"\bminos (\d+(?:\.\d+)+)", text)
     versions += re.findall(r"cmd LC_VERSION_MIN_MACOSX\s+cmdsize \d+\s+version (\d+(?:\.\d+)+)", text)
-    return max((tuple(map(int, value.split("."))) for value in versions), default=(11, 0))
+    return max((tuple(map(int, (value.split(".") + ["0", "0"])[:3])) for value in versions), default=(11, 0, 0))
 
 
 def digest(path):
@@ -68,6 +68,13 @@ def package_root(path):
 
 def bundle(app):
     project = Path(__file__).resolve().parents[1]
+    overrides = {}
+    for formula, version in (("svt-av1", "4.3.0"), ("libarchive", "3.8.11")):
+        root = project / "target/macos-27-libraries" / formula / version
+        if not (root / "RUSTYVIEWER_BUILD.json").is_file():
+            continue
+        for library in (root / "lib").glob("*.dylib"):
+            overrides[library.name] = library.resolve()
     source = project / "target/native-video/RustyViewer Video.app"
     resources = app / "Contents/Resources"
     destination = resources / "native-video/RustyViewer Video.app"
@@ -83,6 +90,8 @@ def bundle(app):
     links = {}
     queue = [original.resolve()]
     minimum = minimum_os(binary)
+    if minimum > (27, 0, 0):
+        raise RuntimeError("Native helper requires newer than macOS 27.0; rebuild with deployment target 27.0")
     arch = run("/usr/bin/lipo", "-archs", str(binary)).split()
     while queue:
         owner = queue.pop()
@@ -90,7 +99,9 @@ def bundle(app):
         for name in dependencies(owner):
             if system_library(name):
                 continue
-            dependency = resolve(name, owner, original)
+            dependency = overrides.get(Path(name).name)
+            if dependency is None:
+                dependency = resolve(name, owner, original)
             if dependency == owner:  # dylib install ID, not a dependency
                 continue
             links[owner][name] = dependency
@@ -104,7 +115,11 @@ def bundle(app):
             shutil.copy2(dependency, copied)
             copied.chmod(copied.stat().st_mode | 0o200)
             sources[dependency] = copied
-            minimum = max(minimum, minimum_os(dependency))
+            required = minimum_os(dependency)
+            if required > (27, 0, 0):
+                raise RuntimeError(f"{dependency} requires macOS {required}; rebuild for 27.0 "
+                                   "with python3 macos/rebuild_compat_libraries.py")
+            minimum = max(minimum, required)
             if not set(arch).issubset(run("/usr/bin/lipo", "-archs", str(dependency)).split()):
                 raise RuntimeError(f"Architecture mismatch: {dependency}")
             queue.append(dependency)
@@ -138,12 +153,14 @@ def bundle(app):
             notice_dir.mkdir()
             for item in root.iterdir():
                 if item.is_file() and (item.name.upper().startswith(("COPYING", "LICENSE", "LICENCE", "COPYRIGHT", "NOTICE", "AUTHORS", "LGPL", "GPL"))
-                                       or item.name in ("INSTALL_RECEIPT.json", "sbom.spdx.json")):
+                                       or item.name in ("INSTALL_RECEIPT.json", "sbom.spdx.json", "RUSTYVIEWER_BUILD.json")):
                     shutil.copy2(item, notice_dir / item.name)
             sbom = json.loads((root / "sbom.spdx.json").read_text())
             # Retain exact upstream source and patch references from the installed bottle.
             packages[key] = {"formula": root.parent.name, "version": root.name,
                              "sources": sbom.get("packages", [])}
+            if (root / "RUSTYVIEWER_BUILD.json").is_file():
+                packages[key]["private_build_root"] = str(root.relative_to(project))
         libraries.append({"name": copied.name, "package": key,
                           "original_sha256": digest(original_lib)})
 

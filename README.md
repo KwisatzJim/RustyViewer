@@ -13,9 +13,9 @@ telemetry, advertising, or remote image service.
 Download the installer for your operating system from the
 [latest GitHub release](https://github.com/KwisatzJim/RustyViewer/releases/latest):
 
-- **macOS Apple Silicon:** use the `aarch64` DMG. The locally tested 0.3.0 build
-  requires macOS 27. It includes libmpv and its libraries; Homebrew is not required
-  on the user's Mac. CI-built packages may have a different minimum macOS version.
+- **macOS Apple Silicon:** use the `aarch64` DMG. The locally tested 0.3.1 build
+  requires macOS 27.0. It includes libmpv and its libraries; Homebrew is not required
+  on the user's Mac. The packaging check rejects libraries requiring a newer macOS version.
 - **Linux x64:** use the DEB and install it with `sudo apt install ./package.deb`.
   This resolves its system-library dependencies. The local package was tested on
   Ubuntu 26.04; the automated release build uses Ubuntu 24.04 and needs separate
@@ -59,7 +59,8 @@ CSS and JavaScript and does not require Node.js.
 ### macOS
 
 ```sh
-brew install mpv pkgconf
+brew install mpv pkgconf cmake
+python3 macos/rebuild_compat_libraries.py
 ./macos/build_app.sh
 ```
 
@@ -99,7 +100,12 @@ All recognized videos open in a separate libmpv window on macOS and Linux.
 Builds made with `./macos/build_app.sh` include the Mac native player and its
 libraries, so users do not need Homebrew. Homebrew is needed on the build machine.
 The bundle’s minimum macOS version follows its bundled libraries; the current
-Homebrew libraries on this build machine require macOS 27.
+Homebrew libraries can require a newer release. The build targets macOS 27.0
+and rejects bundled libraries requiring a newer OS. Run
+`python3 macos/rebuild_compat_libraries.py` to rebuild SVT-AV1 4.3.0 and
+libarchive 3.8.11 privately under `target/macos-27-libraries/`. Homebrew
+libraries are left unchanged. The pinned source archives are checksum-verified;
+the build requires CMake and the installed Homebrew versions for provenance.
 
 ```sh
 brew install mpv pkgconf

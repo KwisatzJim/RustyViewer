@@ -14,7 +14,8 @@ require macOS 27. Install the Tauri macOS prerequisites and run, in RustyViewer:
 
 ```sh
 npm ci
-brew install mpv pkgconf
+brew install mpv pkgconf cmake
+python3 macos/rebuild_compat_libraries.py
 ./macos/build_app.sh
 ./macos/package_dmg.sh
 ```
@@ -90,3 +91,14 @@ file checksum and the source fingerprints. It then builds RustyViewer from an
 extracted source archive with an empty Cargo cache and Cargo offline mode.
 This validates the application and Rust dependencies; it uses the host's system
 libraries and does not rebuild the full Homebrew library chain.
+
+## macOS 27.0 compatibility rebuild
+
+`rebuild_compat_libraries.py` builds SVT-AV1 4.3.0 and libarchive 3.8.11 from
+checksum-pinned upstream archives with deployment target 27.0. It installs only
+inside `target/macos-27-libraries/`. Bundling substitutes these private libraries
+and rejects any dependency whose Mach-O minimum exceeds 27.0. The original
+Homebrew receipts remain source provenance; `RUSTYVIEWER_BUILD.json` identifies
+the private rebuild. Source collection uses the private recipes for these packages.
+Other Homebrew library versions may require additional rebuilds. The original
+source snapshot described above predates this compatibility rebuild.

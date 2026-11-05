@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.1] - 2026-11-04
+
+### Fixed
+
+- Rebuild bundled SVT-AV1 4.3.0 and libarchive 3.8.11 for macOS 27.0.
+- Reject native libraries requiring a newer macOS during packaging.
+- Preserve transparency when adjusting image contrast, including 16-bit images.
+
+### Changed
+
+- Pin the Mac application and native helper deployment target to macOS 27.0.
+- Retain private library rebuild provenance and matching source recipes.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added

@@ -23,6 +23,7 @@ else
     exit 1
 fi
 
+export MACOSX_DEPLOYMENT_TARGET=27.0
 ./macos/test_native_video.sh --build
 if [[ "$PROFILE" == "debug" ]]; then
     "${TAURI[@]}" build --bundles app --debug -- --locked

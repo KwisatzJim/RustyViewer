@@ -63,9 +63,9 @@ jobs:
           tagName: __VERSION__
           releaseName: RustyViewer v__VERSION__
           releaseBody: |
-            RustyViewer 0.3.0 adds libmpv playback for all recognized videos on macOS and Linux, with seeking, volume, fullscreen and subtitle visibility controls. The Open dialog shows images and videos together.
+            RustyViewer 0.3.1 fixes macOS 27.0 compatibility by rebuilding SVT-AV1 and libarchive, adds a native-library minimum-version check, and preserves image transparency during contrast adjustments.
 
-            Download the installer for your operating system and review README.md and CHANGELOG.md. Mac packages are Apple Silicon only and have a local signature, without Developer ID signing or notarization. The locally tested Mac build requires macOS 27; automated builds may have a different minimum version. Windows installers are unsigned and Windows video playback uses the webview.
+            Download the installer for your operating system and review README.md and CHANGELOG.md. Mac packages are Apple Silicon only and have a local signature, without Developer ID signing or notarization. The Mac build targets macOS 27.0 and rejects native libraries requiring newer versions. Windows installers are unsigned and Windows video playback uses the webview.
 
             Linux native video is distributed as a DEB with system-library dependencies. The locally tested package runs on Ubuntu 26.04; the automated build uses Ubuntu 24.04. Intel Mac and Linux AppImage packages are paused pending native packaging verification.
 
@@ -93,9 +93,10 @@ jobs:
         run: |
           npm run version:check
           test "$(uname -m)" = arm64
-      - run: brew install mpv pkgconf
+      - run: brew install mpv pkgconf cmake
       - name: Build native app and disk image
         run: |
+          python3 macos/rebuild_compat_libraries.py
           ./macos/build_app.sh
           ./macos/package_dmg.sh
       - name: Prepare matching source package

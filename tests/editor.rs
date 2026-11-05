@@ -186,3 +186,26 @@ fn save_without_overwrite_is_atomic_and_preserves_destination() {
     assert!(editor::save(&DynamicImage::new_rgba8(2, 2), &input, false).is_err());
     assert_eq!(fs::read(input).unwrap(), before);
 }
+
+#[test]
+fn contrast_export_preserves_transparent_pixels() {
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("alpha.png");
+    DynamicImage::ImageRgba8(RgbaImage::from_pixel(1, 1, Rgba([160, 160, 160, 64])))
+        .save(&input)
+        .unwrap();
+    let mut editor = Editor::default();
+    editor.open(input, false).unwrap();
+    editor
+        .adjust(Adjustments {
+            contrast: 0.5,
+            ..Default::default()
+        })
+        .unwrap();
+    let output = dir.path().join("export.png");
+    editor.export(&output).unwrap();
+    assert_eq!(
+        image::open(output).unwrap().to_rgba8().get_pixel(0, 0).0,
+        [200, 200, 200, 64]
+    );
+}

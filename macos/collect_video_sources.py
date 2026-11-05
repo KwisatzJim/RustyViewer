@@ -23,7 +23,8 @@ def main():
     cellar = Path(subprocess.check_output(["brew", "--cellar"], text=True).strip())
     for package, metadata in manifest["packages"].items():
         receipt = json.loads((notices / package / "INSTALL_RECEIPT.json").read_text())
-        root = cellar / metadata["formula"] / metadata["version"]
+        root = (project / metadata["private_build_root"] if "private_build_root" in metadata
+                else cellar / metadata["formula"] / metadata["version"])
         recipe = root / ".brew" / (metadata["formula"] + ".rb")
         if not recipe.is_file():
             raise RuntimeError(f"Missing installed build recipe: {recipe}")

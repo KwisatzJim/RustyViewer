@@ -27,7 +27,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 PLIST
 BINARY="$APP/Contents/MacOS/rustyviewer-video"
 read -r -a MPV_FLAGS <<< "$(pkg-config --cflags --libs mpv)"
-clang -fobjc-arc -Wall -Wextra -Werror -Wno-deprecated-declarations \
+clang -mmacosx-version-min=27.0 -fobjc-arc -Wall -Wextra -Werror -Wno-deprecated-declarations \
     "$PROJECT_ROOT/macos/native_video.m" "${MPV_FLAGS[@]}" \
     -framework Cocoa -framework OpenGL -o "$BINARY"
 if [[ "${1:-}" == --build ]]; then
